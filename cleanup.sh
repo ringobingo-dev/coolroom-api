@@ -1,0 +1,1 @@
+echo "Cleaning up test files..." && aws s3 rm s3://test-warehouse-ui-content-test-202501221845/updated-index.html && aws cloudfront create-invalidation --distribution-id E2NGSO7RCE1JO3 --paths "/*" && echo "Cleanup complete"

@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CoolRoom Infrastructure with API Gateway and Lambda Functions
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name
+Resources:
+  UserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${Environment}-User
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: customer_id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: customer_id
+        KeyType: HASH
+  UserFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${Environment}-user-handler
+      Runtime: python3.9
+      Handler: index.handler
+      Role:
+        Fn::GetAtt:
+        - LambdaExecutionRole
+        - Arn
+      Code:
+        ZipFile: "import json\nimport os\nimport boto3\nfrom botocore.exceptions import\
+          \ ClientError\n\ndef handler(event, context):\n    print(f\"Event received:\
+          \ {json.dumps(event)}\")\n    \n    try:\n        body = json.loads(event['body'])\n\
+          \        customer_id = body['customer_id']\n        \n        dynamodb =\
+          \ boto3.resource('dynamodb')\n        table = dynamodb.Table(os.environ['USER_TABLE'])\n\
+          \        \n        table.put_item(Item={'customer_id': customer_id})\n \
+          \       \n        return {\n            'statusCode': 200,\n           \
+          \ 'headers': {\n                'Content-Type': 'application/json',\n  \
+          \              'Access-Control-Allow-Origin': '*'\n            },\n    \
+          \        'body': json.dumps({\n                'message': 'User created\
+          \ successfully',\n                'customer_id': customer_id\n         \
+          \   })\n        }\n        \n    except Exception as e:\n        print(f\"\
+          Error: {str(e)}\")\n        return {\n            'statusCode': 500,\n \
+          \           'headers': {'Content-Type': 'application/json'},\n         \
+          \   'body': json.dumps({'error': str(e)})\n        }\n"
+      Environment:
+        Variables:
+          USER_TABLE:
+            Ref: UserTable
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: DynamoDBAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: dynamodb:PutItem
+            Resource:
+              Fn::GetAtt:
+              - UserTable
+              - Arn
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name:
+        Fn::Sub: ${Environment}-coolroom-api
+      EndpointConfiguration:
+        Types:
+        - REGIONAL
+  UsersResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      ParentId:
+        Fn::GetAtt:
+        - RestApi
+        - RootResourceId
+      PathPart: users
+  UsersPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      ResourceId:
+        Ref: UsersResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UserFunction.Arn}/invocations
+  LambdaApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+        - UserFunction
+        - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/${Environment}/POST/users
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: UsersPostMethod
+    Properties:
+      RestApiId:
+        Ref: RestApi
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId:
+        Ref: ApiDeployment
+      RestApiId:
+        Ref: RestApi
+      StageName:
+        Ref: Environment
+Outputs:
+  ApiUrl:
+    Description: URL of the API Gateway
+    Value:
+      Fn::Sub: https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}

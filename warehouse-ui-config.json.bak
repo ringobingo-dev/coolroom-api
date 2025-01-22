@@ -1,0 +1,1 @@
+{"environment":"test","timestamp":"202501221845","resources":{"cloudfront":{"id":"E2NGSO7RCE1JO3","domain":"d3pgp3kmd7d680.cloudfront.net"},"s3":{"content_bucket":"test-warehouse-ui-content-test-202501221845","logs_bucket":"test-warehouse-ui-logs-test-202501221845"},"waf":{"name":"test-warehouse-ui-acl","id":"41daa9dd-5e2a-4e5b-90c3-547a0d97e2cd"}}}

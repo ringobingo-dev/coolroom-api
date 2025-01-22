@@ -1,0 +1,27 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:CreateStack",
+                "cloudformation:DeleteStack",
+                "cloudformation:DescribeStacks",
+                "cloudformation:UpdateStack",
+                "cloudformation:ListStacks",
+                "dynamodb:CreateTable",
+                "dynamodb:DeleteTable",
+                "dynamodb:DescribeTable",
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:CreateBucket",
+                "s3:DeleteBucket",
+                "iam:CreateRole",
+                "iam:PutRolePolicy",
+                "iam:DeleteRole",
+                "iam:PassRole"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

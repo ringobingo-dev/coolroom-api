@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFront Configuration for Warehouse UI Test Environment
+
+Parameters:
+  Environment:
+    Type: String
+    Default: test
+    Description: Environment name (e.g., test, prod)
+  WebACLArn:
+    Type: String
+    Description: ARN of the WAF Web ACL
+  S3BucketDomainName:
+    Type: String
+    Description: Domain name of the S3 bucket
+  Timestamp:
+    Type: String
+    Description: Timestamp for bucket names matching S3 stack
+
+Resources:
+  CloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "OAI for ${Environment} environment"
+
+  SecurityHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub "security-headers-${Environment}"
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: "default-src 'self'; img-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';"
+            Override: true
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Preload: true
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: strict-origin-when-cross-origin
+            Override: true
+          XSSProtection:
+            ModeBlock: true
+            Protection: true
+            Override: true
+
+  TestDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        WebACLId: !Ref WebACLArn
+        Origins:
+          - Id: S3Origin
+            DomainName: !Ref S3BucketDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf  # CORS-S3Origin
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        PriceClass: PriceClass_100
+        Logging:
+          Bucket: !Sub test-warehouse-ui-logs-${Environment}-${Timestamp}.s3.amazonaws.com
+          Prefix: cdn/
+          IncludeCookies: false
+
+Outputs:
+  DistributionId:
+    Description: ID of the CloudFront distribution
+    Value: !Ref TestDistribution
+    Export:
+      Name: !Sub ${AWS::StackName}-DistributionId
+
+  DistributionDomainName:
+    Description: Domain name of the CloudFront distribution
+    Value: !GetAtt TestDistribution.DomainName
+    Export:
+      Name: !Sub ${AWS::StackName}-DomainName
+
+  OAIId:
+    Description: ID of the CloudFront Origin Access Identity
+    Value: !Ref CloudFrontOriginAccessIdentity
+    Export:
+      Name: !Sub ${AWS::StackName}-OAIId
