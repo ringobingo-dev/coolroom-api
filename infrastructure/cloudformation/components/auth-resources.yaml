@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Authentication resources for CoolRoom API
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name (dev, test, prod)
+  
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    Description: Secret key for JWT token signing
+
+Resources:
+  # DynamoDB Table for Users
+  UserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-auth-users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: email
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+
+  # Lambda Function for Authentication
+  AuthFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Environment}-auth-handler
+      Runtime: python3.9
+      Handler: auth_handler.lambda_handler
+      Role: !GetAtt AuthLambdaRole.Arn
+      Code:
+        S3Bucket: !Sub coolroom-lambda-${AWS::Region}
+        S3Key: auth_handler.zip
+      Environment:
+        Variables:
+          USER_TABLE: !Ref UserTable
+          JWT_SECRET: !Ref JwtSecret
+      Timeout: 30
+      MemorySize: 256
+
+  # IAM Role for Lambda
+  AuthLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Environment}-auth-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource: !GetAtt UserTable.Arn
+
+  # API Gateway Resources
+  AuthResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: auth
+
+  RegisterResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref AuthResource
+      PathPart: register
+
+  LoginResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref AuthResource
+      PathPart: login
+
+  ProfileResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref AuthResource
+      PathPart: profile
+
+  # API Methods
+  RegisterMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref RegisterResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthFunction.Arn}/invocations
+
+  LoginMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref LoginResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthFunction.Arn}/invocations
+
+  ProfileMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref ProfileResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthFunction.Arn}/invocations
+
+  # Lambda Permissions
+  AuthFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref AuthFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/*/*
+
+Outputs:
+  UserTableName:
+    Description: Name of the User DynamoDB table
+    Value: !Ref UserTable
+
+  AuthFunctionArn:
+    Description: ARN of the Authentication Lambda function
+    Value: !GetAtt AuthFunction.Arn

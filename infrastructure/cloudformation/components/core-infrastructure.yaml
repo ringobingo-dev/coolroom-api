@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Core Infrastructure for CoolRoom API
+
+Parameters:
+  Environment:
+    Type: String
+    Default: test
+    Description: Environment name (test, staging, prod)
+    AllowedValues:
+      - test
+      - staging
+      - prod
+
+Resources:
+  # API Gateway
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "coolroom-api-${Environment}"
+      Description: "CoolRoom API"
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      ApiKeySourceType: HEADER
+
+  # Base API Deployment
+  BaseDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: ApiGateway
+    Properties:
+      RestApiId: !Ref ApiGateway
+      Description: !Sub "Base deployment for ${Environment} environment"
+
+  # API Stage
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref ApiGateway
+      DeploymentId: !Ref BaseDeployment
+      StageName: !Ref Environment
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          MetricsEnabled: true
+          DataTraceEnabled: true
+          LoggingLevel: INFO
+
+  # Base API Key
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub "${Environment}-api-key"
+      Description: !Sub "API Key for ${Environment} environment"
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref ApiGateway
+          StageName: !Ref Environment
+
+  # Usage Plan
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      Name: !Sub "${Environment}-usage-plan"
+      Description: !Sub "Usage plan for ${Environment} environment"
+      ApiStages:
+        - ApiId: !Ref ApiGateway
+          Stage: !Ref Environment
+      Throttle:
+        RateLimit: 10
+        BurstLimit: 20
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+Outputs:
+  ApiGatewayId:
+    Description: ID of the API Gateway REST API
+    Value: !Ref ApiGateway
+    Export:
+      Name: !Sub "${AWS::StackName}-api-gateway-id"
+
+  ApiGatewayRootResourceId:
+    Description: ID of the API Gateway root resource
+    Value: !GetAtt ApiGateway.RootResourceId
+    Export:
+      Name: !Sub "${AWS::StackName}-root-resource-id"
+
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+    Export:
+      Name: !Sub "${AWS::StackName}-api-endpoint"
+
+  ApiKeyId:
+    Description: ID of the API Key
+    Value: !Ref ApiKey
+    Export:
+      Name: !Sub "${AWS::StackName}-api-key-id"
