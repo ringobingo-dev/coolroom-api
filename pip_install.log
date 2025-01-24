@@ -1,0 +1,44 @@
+Collecting PyJWT==2.8.0
+  Using cached PyJWT-2.8.0-py3-none-any.whl (22 kB)
+Collecting aws-lambda-powertools==2.26.0
+  Using cached aws_lambda_powertools-2.26.0-py3-none-any.whl (282 kB)
+Collecting python-jose==3.3.0
+  Using cached python_jose-3.3.0-py2.py3-none-any.whl (33 kB)
+Collecting requests==2.31.0
+  Using cached requests-2.31.0-py3-none-any.whl (62 kB)
+Collecting boto3==1.28.44
+  Using cached boto3-1.28.44-py3-none-any.whl (135 kB)
+Collecting python-dotenv==1.0.0
+  Using cached python_dotenv-1.0.0-py3-none-any.whl (19 kB)
+Collecting typing-extensions<5.0.0,>=4.6.2
+  Using cached typing_extensions-4.12.2-py3-none-any.whl (37 kB)
+Collecting pyasn1
+  Using cached pyasn1-0.6.1-py3-none-any.whl (83 kB)
+Collecting rsa
+  Using cached rsa-4.9-py3-none-any.whl (34 kB)
+Collecting ecdsa!=0.15
+  Using cached ecdsa-0.19.0-py2.py3-none-any.whl (149 kB)
+Collecting idna<4,>=2.5
+  Using cached idna-3.10-py3-none-any.whl (70 kB)
+Collecting certifi>=2017.4.17
+  Using cached certifi-2024.12.14-py3-none-any.whl (164 kB)
+Collecting charset-normalizer<4,>=2
+  Using cached charset_normalizer-3.4.1-cp39-cp39-macosx_10_9_universal2.whl (197 kB)
+Collecting urllib3<3,>=1.21.1
+  Using cached urllib3-2.3.0-py3-none-any.whl (128 kB)
+Collecting botocore<1.32.0,>=1.31.44
+  Using cached botocore-1.31.85-py3-none-any.whl (11.3 MB)
+Collecting jmespath<2.0.0,>=0.7.1
+  Using cached jmespath-1.0.1-py3-none-any.whl (20 kB)
+Collecting s3transfer<0.7.0,>=0.6.0
+  Using cached s3transfer-0.6.2-py3-none-any.whl (79 kB)
+Collecting urllib3<3,>=1.21.1
+  Using cached urllib3-1.26.20-py2.py3-none-any.whl (144 kB)
+Collecting python-dateutil<3.0.0,>=2.1
+  Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+Collecting six>=1.9.0
+  Using cached six-1.17.0-py2.py3-none-any.whl (11 kB)
+Installing collected packages: six, urllib3, python-dateutil, jmespath, pyasn1, botocore, typing-extensions, s3transfer, rsa, idna, ecdsa, charset-normalizer, certifi, requests, python-jose, python-dotenv, PyJWT, boto3, aws-lambda-powertools
+Successfully installed PyJWT-2.8.0 aws-lambda-powertools-2.26.0 boto3-1.28.44 botocore-1.31.85 certifi-2024.12.14 charset-normalizer-3.4.1 ecdsa-0.19.0 idna-3.10 jmespath-1.0.1 pyasn1-0.6.1 python-dateutil-2.9.0.post0 python-dotenv-1.0.0 python-jose-3.3.0 requests-2.31.0 rsa-4.9 s3transfer-0.6.2 six-1.17.0 typing-extensions-4.12.2 urllib3-1.26.20
+WARNING: You are using pip version 21.2.4; however, version 24.3.1 is available.
+You should consider upgrading via the '/Library/Developer/CommandLineTools/usr/bin/python3 -m pip install --upgrade pip' command.

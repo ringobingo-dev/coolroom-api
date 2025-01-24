@@ -1,0 +1,108 @@
+import os
+import json
+import jwt
+from datetime import datetime, timedelta
+from aws_lambda_powertools import Logger, Tracer
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver
+from aws_lambda_powertools.utilities.typing import LambdaContext
+
+# Initialize utilities
+logger = Logger(level="DEBUG")  # Set to DEBUG for more verbose logging
+tracer = Tracer()
+app = APIGatewayRestResolver()
+
+# Log registered routes
+logger.debug("Initializing routes...")
+
+# Constants
+JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-here')
+TOKEN_EXPIRY = int(os.environ.get('TOKEN_EXPIRY_HOURS', '24'))
+
+@app.post("/login")  # Add leading slash back
+@tracer.capture_method
+def login():
+    """Handle login requests and generate JWT tokens."""
+    try:
+        logger.debug("Received login request")
+        logger.debug(f"Event: {app.current_event}")
+        logger.debug(f"Event raw: {app.current_event._data}")
+        
+        body = app.current_event.json_body
+        logger.debug(f"Request body: {body}")
+        
+        username = body.get('username')
+        password = body.get('password')
+
+        # Basic validation
+        if not username or not password:
+            logger.warning("Missing username or password")
+            return {
+                "message": "Username and password are required"
+            }, 400
+
+        # TODO: Replace with actual user authentication
+        # For testing, accept any username/password combination
+        if username and password:
+            logger.debug(f"Generating token for user: {username}")
+            token = generate_token(username)
+            return {
+                "token": token,
+                "message": "Login successful"
+            }
+
+    except Exception as e:
+        logger.exception(f"Login error: {str(e)}")
+        return {
+            "message": "Internal server error"
+        }, 500
+
+@app.get("/debug")  # Add leading slash back
+def debug():
+    """Debug endpoint to verify routing."""
+    logger.debug("Debug endpoint called")
+    return {"message": "Debug endpoint working"}
+
+def generate_token(username: str) -> str:
+    """Generate a JWT token for the user."""
+    try:
+        expiry = datetime.utcnow() + timedelta(hours=TOKEN_EXPIRY)
+        payload = {
+            'sub': username,
+            'exp': expiry,
+            'iat': datetime.utcnow()
+        }
+        token = jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+        logger.debug(f"Generated token successfully")
+        return token
+    except Exception as e:
+        logger.exception(f"Token generation error: {str(e)}")
+        raise
+
+# Log all registered routes after they're defined
+logger.debug(f"Available routes after registration: {app.routes}")
+
+@logger.inject_lambda_context
+@tracer.capture_lambda_handler
+def handler(event: dict, context: LambdaContext) -> dict:
+    """Main Lambda handler."""
+    logger.debug(f"Received event: {json.dumps(event)}")
+    logger.debug(f"Event type: {type(event)}")
+    logger.debug(f"Event keys: {event.keys()}")
+    logger.debug(f"Available routes: {app.routes}")
+    logger.debug(f"Current path: {event.get('path')}")
+    logger.debug(f"Current method: {event.get('httpMethod')}")
+    
+    # Debug route matching
+    path = event.get('path', '')
+    if not path.startswith('/'):
+        path = f"/{path}"
+        event['path'] = path
+    method = event.get('httpMethod', '')
+    logger.debug(f"Attempting to match route: {method} {path}")
+    logger.debug(f"Route map: {app._routes}")
+    
+    try:
+        return app.resolve(event, context)
+    except Exception as e:
+        logger.exception(f"Error resolving event: {str(e)}")
+        raise
