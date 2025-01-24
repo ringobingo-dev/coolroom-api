@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Authentication Infrastructure for CoolRoom API
+
+Parameters:
+  Environment:
+    Type: String
+    Default: test
+    Description: Environment name (test, staging, prod)
+    AllowedValues:
+      - test
+      - staging
+      - prod
+  CoreStackName:
+    Type: String
+    Description: Name of the core infrastructure stack
+    Default: coolroom-api-core-test
+
+Resources:
+  # Lambda Execution Role
+  AuthLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AuthLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # Auth Lambda Function
+  AuthFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "coolroom-auth-${Environment}"
+      Handler: auth_handler.handler
+      Role: !GetAtt AuthLambdaRole.Arn
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              return {"statusCode": 200, "body": "Function not yet deployed"}
+      Runtime: python3.9
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          JWT_SECRET: !Sub "{{resolve:secretsmanager:coolroom-${Environment}-secrets:SecretString:jwt_secret}}"
+          TOKEN_EXPIRY_HOURS: "24"
+          POWERTOOLS_SERVICE_NAME: coolroom-auth
+          LOG_LEVEL: INFO
+
+  # Auth Resource
+  AuthResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: 
+        Fn::ImportValue: !Sub "${CoreStackName}-api-gateway-id"
+      ParentId:
+        Fn::ImportValue: !Sub "${CoreStackName}-root-resource-id"
+      PathPart: auth
+
+  # Login Resource
+  LoginResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: 
+        Fn::ImportValue: !Sub "${CoreStackName}-api-gateway-id"
+      ParentId: !Ref AuthResource
+      PathPart: login
+
+  # Login Method
+  LoginMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: 
+        Fn::ImportValue: !Sub "${CoreStackName}-api-gateway-id"
+      ResourceId: !Ref LoginResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthFunction.Arn}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+        - StatusCode: 400
+        - StatusCode: 401
+        - StatusCode: 500
+
+  # Lambda Permission
+  AuthFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref AuthFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${CoreStackName}-api-gateway-id/*"
+
+Outputs:
+  AuthFunctionArn:
+    Description: ARN of the Auth Lambda function
+    Value: !GetAtt AuthFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-auth-function-arn"
