@@ -1,0 +1,49 @@
+# Ignore Python compiled files
+*.pyc
+*.pyo
+__pycache__/
+
+# Ignore system and editor files
+*.swp
+*.swo
+.DS_Store
+
+# Ignore IDE specific files
+.vscode/
+.idea/
+
+# Ignore logs
+*.log
+
+# Ignore dependency cache
+*.egg-info/
+.eggs/
+*.whl
+.pip/
+
+# Ignore local environment
+.venv/
+env/
+.env
+
+# Ignore Docker artifacts
+*.dockerignore
+docker-compose.override.yml
+
+# Ignore build artifacts
+build/
+dist/
+
+# Ignore SSH keys and sensitive files
+.ssh/
+id_ed25519
+id_ed25519.pub
+
+# Ignore cloud-specific files
+.aws/
+.cache/
+.local/
+
+# Ignore deployment files
+deployment_package.zip
+
